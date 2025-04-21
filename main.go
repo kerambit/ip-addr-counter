@@ -14,17 +14,7 @@ import (
 const totalIPs = 1 << 32
 
 func main() {
-    var(
-        filePath string
-        allowParallel bool
-    )
-
-    flag.StringVar(&filePath, "path", "", "Path to the file")
-    flag.BoolVar(&allowParallel, "allowParallel", false, "Allow parallel processing")
-    flag.Parse()
-
-	fmt.Println("Path file is:", filePath)
-	fmt.Println("allowParallelMode is:", allowParallel)
+    filePath, numWorkers, allowParallel := parseCmd()
 
     start := time.Now()
 
@@ -41,6 +31,8 @@ func main() {
         printMemUsage()
         return
     }
+
+    fmt.Println("Parallel processing is not implemented yet.", numWorkers)
 }
 
 func ipToUint32(ipStr string) (uint32, error) {
@@ -86,6 +78,25 @@ func processFileInSingle(inputFile string) (uint32, error) {
 	}
 
 	return iterator, nil
+}
+
+func parseCmd() (string, int, bool) {
+    var(
+        filePath string
+        numWorkers int
+        allowParallel bool
+    )
+
+    flag.StringVar(&filePath, "path", "", "Path to the file")
+    flag.IntVar(&numWorkers, "numWorkers", 2, "Max workers for parallel processing")
+    flag.BoolVar(&allowParallel, "allowParallel", false, "Allow parallel processing")
+    flag.Parse()
+
+	fmt.Println("Path file is:", filePath)
+	fmt.Println("numWorkers is:", numWorkers)
+	fmt.Println("allowParallelMode is:", allowParallel)
+
+	return filePath, numWorkers, allowParallel
 }
 
 func printMemUsage() {
