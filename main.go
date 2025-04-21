@@ -2,13 +2,11 @@ package main
 
 import (
 	"bufio"
-	"encoding/binary"
 	"fmt"
-	"net"
+    "ipcounter/utils"
 	"os"
 	"runtime"
 	"time"
-	"flag"
 	"io"
 	"strings"
 	"sync"
@@ -17,9 +15,9 @@ import (
 const totalIPs = 1 << 32
 
 func main() {
-    filePath, numWorkers, allowParallel := parseCmd()
+    filePath, numWorkers, allowParallel := utils.ParseCmd()
 
-    defer printMemUsage()
+    defer utils.PrintMemUsage()
     start := time.Now()
 
     if !allowParallel {
@@ -73,17 +71,9 @@ func main() {
 
 	wg.Wait()
 
-	uniqueIPs := countUniqueIPs(bitmask)
+	uniqueIPs := utils.CountUniqueIPs(bitmask)
     fmt.Println("Unique ips: ", uniqueIPs)
     fmt.Println("Total time:", time.Since(start))
-}
-
-func ipToUint32(ipStr string) (uint32, error) {
-	ip := net.ParseIP(ipStr).To4()
-	if ip == nil {
-		return 0, fmt.Errorf("Invalid IP: %s", ipStr)
-	}
-	return binary.BigEndian.Uint32(ip), nil
 }
 
 func processFileInSingle(inputFile string) (uint32, error) {
@@ -104,7 +94,7 @@ func processFileInSingle(inputFile string) (uint32, error) {
 			continue
 		}
 
-		ipUint32, err := ipToUint32(ipStr)
+		ipUint32, err := utils.IpToUint32(ipStr)
 		if err != nil {
 			fmt.Printf("Error transforming to Uint32: %s\n", ipStr)
 			continue
@@ -156,7 +146,7 @@ func processFilePart(file *os.File, start int64, end int64, bitmask []byte, wg *
 			continue
 		}
 
-		ipUint32, err := ipToUint32(ipStr)
+		ipUint32, err := utils.IpToUint32(ipStr)
 		if err != nil {
 			fmt.Printf("Error transforming to Uint32: %s\n", ipStr)
 			continue
@@ -169,49 +159,4 @@ func processFilePart(file *os.File, start int64, end int64, bitmask []byte, wg *
 			bitmask[index] |= mask
 		}
 	}
-}
-
-func parseCmd() (string, int, bool) {
-    var(
-        filePath string
-        numWorkers int
-        allowParallel bool
-    )
-
-    flag.StringVar(&filePath, "path", "", "Path to the file")
-    flag.IntVar(&numWorkers, "numWorkers", 2, "Max workers for parallel processing")
-    flag.BoolVar(&allowParallel, "allowParallel", false, "Allow parallel processing")
-    flag.Parse()
-
-	fmt.Println("Path file is:", filePath)
-	fmt.Println("numWorkers is:", numWorkers)
-	fmt.Println("allowParallelMode is:", allowParallel)
-
-	return filePath, numWorkers, allowParallel
-}
-
-func countUniqueIPs(bitmask []byte) uint32 {
-	var count uint32 = 0
-	for _, b := range bitmask {
-		count += uint32(bitsOn(b))
-	}
-	return count
-}
-
-func bitsOn(b byte) int {
-	var count int = 0
-	for b > 0 {
-		count += int(b & 1)
-		b >>= 1
-	}
-	return count
-}
-
-func printMemUsage() {
-	var m runtime.MemStats
-	runtime.ReadMemStats(&m)
-	fmt.Printf("Alloc = %v MiB", m.Alloc/1024/1024)
-	fmt.Printf("\tTotalAlloc = %v MiB", m.TotalAlloc/1024/1024)
-	fmt.Printf("\tSys = %v MiB", m.Sys/1024/1024)
-	fmt.Printf("\tNumGC = %v\n", m.NumGC)
 }
