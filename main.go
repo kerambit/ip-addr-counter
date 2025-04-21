@@ -1,9 +1,17 @@
 package main
 
 import (
- "flag"
- "fmt"
+	"bufio"
+	"encoding/binary"
+	"fmt"
+	"net"
+	"os"
+	"runtime"
+	"time"
+	"flag"
 )
+
+const totalIPs = 1 << 32
 
 func main() {
     var(
@@ -15,10 +23,69 @@ func main() {
     flag.BoolVar(&allowParallel, "allowParallel", false, "Allow parallel processing")
     flag.Parse()
 
-	fmt.Println("path is:", filePath)
-	fmt.Println("allowParallel is:", allowParallel)
+	fmt.Println("Path file is:", filePath)
+	fmt.Println("allowParallelMode is:", allowParallel)
 
-	printMemUsage()
+    start := time.Now()
+
+    if !allowParallel {
+        uniqueIPs, err := processFileInSingle(filePath)
+        if err != nil {
+            fmt.Println("Error: ", err)
+            fmt.Println("Total time:", time.Since(start))
+            return
+        }
+
+        fmt.Println("Unique ips: ", uniqueIPs)
+        fmt.Println("Total time:", time.Since(start))
+        printMemUsage()
+        return
+    }
+}
+
+func ipToUint32(ipStr string) (uint32, error) {
+	ip := net.ParseIP(ipStr).To4()
+	if ip == nil {
+		return 0, fmt.Errorf("Invalid IP: %s", ipStr)
+	}
+	return binary.BigEndian.Uint32(ip), nil
+}
+
+func processFileInSingle(inputFile string) (uint32, error) {
+	bitmask := make([]byte, totalIPs/8)
+
+	var iterator uint32 = 0
+
+	file, err := os.Open(inputFile)
+	if err != nil {
+		return iterator, err
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		ipStr := scanner.Text()
+		if len(ipStr) == 0 {
+			continue
+		}
+
+		ip, err := ipToUint32(ipStr)
+		if err != nil {
+			fmt.Println("Error transforming to Uint32:", err)
+			continue
+		}
+
+        if bitmask[ip/8]&(1<<(ip%8)) == 0 {
+            bitmask[ip/8] |= 1 << (ip % 8)
+            iterator++
+        }
+	}
+
+	if err := scanner.Err(); err != nil {
+		return iterator, err
+	}
+
+	return iterator, nil
 }
 
 func printMemUsage() {
