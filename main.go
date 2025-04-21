@@ -9,6 +9,9 @@ import (
 	"runtime"
 	"time"
 	"flag"
+	"io"
+	"strings"
+	"sync"
 )
 
 const totalIPs = 1 << 32
@@ -16,6 +19,7 @@ const totalIPs = 1 << 32
 func main() {
     filePath, numWorkers, allowParallel := parseCmd()
 
+    defer printMemUsage()
     start := time.Now()
 
     if !allowParallel {
@@ -28,11 +32,50 @@ func main() {
 
         fmt.Println("Unique ips: ", uniqueIPs)
         fmt.Println("Total time:", time.Since(start))
-        printMemUsage()
         return
     }
 
-    fmt.Println("Parallel processing is not implemented yet.", numWorkers)
+    file, err := os.Open(filePath)
+    if err != nil {
+        fmt.Println("Error open the file:", err)
+        return
+    }
+    defer file.Close()
+
+    info, err := file.Stat()
+    if err != nil {
+        fmt.Println("Failed to get file info:", err)
+        return
+    }
+
+    fileSize := info.Size()
+    maxWorkers := runtime.NumCPU()
+    if numWorkers > maxWorkers {
+        fmt.Println("Number of workers exceeds the maximum available CPU cores. Setting to max workers.")
+        numWorkers = maxWorkers
+    }
+
+    chunkSize := fileSize / int64(numWorkers)
+
+    bitmask := make([]byte, totalIPs/8)
+    var wg sync.WaitGroup
+
+    for i := 0; i < numWorkers; i++ {
+        startOffset := int64(i) * chunkSize
+        endOffset := startOffset + chunkSize
+        if i == numWorkers-1 {
+            endOffset = fileSize
+        }
+
+        wg.Add(1)
+        go processFilePart(file, startOffset, endOffset, bitmask, &wg)
+    }
+
+	wg.Wait()
+
+	uniqueIPs := countUniqueIPs(bitmask)
+    fmt.Println("Unique ips: ", uniqueIPs)
+    fmt.Println("Total time:", time.Since(start))
 }
 
 func ipToUint32(ipStr string) (uint32, error) {
@@ -61,16 +104,19 @@ func processFileInSingle(inputFile string) (uint32, error) {
 			continue
 		}
 
-		ip, err := ipToUint32(ipStr)
+		ipUint32, err := ipToUint32(ipStr)
 		if err != nil {
-			fmt.Println("Error transforming to Uint32:", err)
+			fmt.Printf("Error transforming to Uint32: %s\n", ipStr)
 			continue
 		}
 
-        if bitmask[ip/8]&(1<<(ip%8)) == 0 {
-            bitmask[ip/8] |= 1 << (ip % 8)
-            iterator++
-        }
+		index := ipUint32 / 8
+		mask := byte(1 << (ipUint32 % 8))
+
+		if bitmask[index]&mask == 0 {
+			bitmask[index] |= mask
+			iterator++
+		}
 	}
 
 	if err := scanner.Err(); err != nil {
@@ -78,6 +124,51 @@ func processFileInSingle(inputFile string) (uint32, error) {
 	}
 
 	return iterator, nil
+}
+
+func processFilePart(file *os.File, start int64, end int64, bitmask []byte, wg *sync.WaitGroup) {
+	defer wg.Done()
+
+	reader := io.NewSectionReader(file, start, end-start)
+	bufReader := bufio.NewReader(reader)
+
+	// move the reader to the start of the line
+	if start != 0 {
+		_, err := bufReader.ReadString('\n')
+		if err != nil && err != io.EOF {
+			fmt.Println("Error searching a new line:", err)
+			return
+		}
+	}
+
+	for {
+		line, err := bufReader.ReadString('\n')
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			fmt.Println("Error reading the line:", err)
+			break
+		}
+
+		ipStr := strings.TrimSpace(line)
+		if ipStr == "" {
+			continue
+		}
+
+		ipUint32, err := ipToUint32(ipStr)
+		if err != nil {
+			fmt.Printf("Error transforming to Uint32: %s\n", ipStr)
+			continue
+		}
+
+		index := ipUint32 / 8
+		mask := byte(1 << (ipUint32 % 8))
+
+		if bitmask[index]&mask == 0 {
+			bitmask[index] |= mask
+		}
+	}
 }
 
 func parseCmd() (string, int, bool) {
@@ -97,6 +188,23 @@ func parseCmd() (string, int, bool) {
 	fmt.Println("allowParallelMode is:", allowParallel)
 
 	return filePath, numWorkers, allowParallel
+}
+
+func countUniqueIPs(bitmask []byte) uint32 {
+	var count uint32 = 0
+	for _, b := range bitmask {
+		count += uint32(bitsOn(b))
+	}
+	return count
+}
+
+func bitsOn(b byte) int {
+	var count int = 0
+	for b > 0 {
+		count += int(b & 1)
+		b >>= 1
+	}
+	return count
 }
 
 func printMemUsage() {
