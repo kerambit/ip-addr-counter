@@ -3,77 +3,77 @@ package main
 import (
 	"bufio"
 	"fmt"
-    "ipcounter/utils"
+	"io"
+	"ipcounter/utils"
 	"os"
 	"runtime"
-	"time"
-	"io"
 	"strings"
 	"sync"
+	"time"
 )
 
 const totalIPs = 1 << 32
 
 func main() {
-    filePath, numWorkers, allowParallel := utils.ParseCmd()
+	filePath, numWorkers, allowParallel := utils.ParseCmd()
 
-    defer utils.PrintMemUsage()
-    start := time.Now()
+	defer utils.PrintMemUsage()
+	start := time.Now()
 
-    if !allowParallel {
-        uniqueIPs, err := processFileInSingle(filePath)
-        if err != nil {
-            fmt.Println("Error: ", err)
-            fmt.Println("Total time:", time.Since(start))
-            return
-        }
+	if !allowParallel {
+		uniqueIPs, err := processFileInSingle(filePath)
+		if err != nil {
+			fmt.Println("Error: ", err)
+			fmt.Println("Total time:", time.Since(start))
+			return
+		}
 
-        fmt.Println("Unique ips: ", uniqueIPs)
-        fmt.Println("Total time:", time.Since(start))
-        return
-    }
+		fmt.Println("Unique ips: ", uniqueIPs)
+		fmt.Println("Total time:", time.Since(start))
+		return
+	}
 
-    file, err := os.Open(filePath)
-    if err != nil {
-        fmt.Println("Error open the file:", err)
-        return
-    }
-    defer file.Close()
+	file, err := os.Open(filePath)
+	if err != nil {
+		fmt.Println("Error open the file:", err)
+		return
+	}
+	defer file.Close()
 
-    info, err := file.Stat()
-    if err != nil {
-        fmt.Println("Failed to get file info:", err)
-        return
-    }
+	info, err := file.Stat()
+	if err != nil {
+		fmt.Println("Failed to get file info:", err)
+		return
+	}
 
-    fileSize := info.Size()
-    maxWorkers := runtime.NumCPU()
-    if numWorkers > maxWorkers {
-        fmt.Println("Number of workers exceeds the maximum available CPU cores. Setting to max workers.")
-        numWorkers = maxWorkers
-    }
+	fileSize := info.Size()
+	maxWorkers := runtime.NumCPU()
+	if numWorkers > maxWorkers {
+		fmt.Println("Number of workers exceeds the maximum available CPU cores. Setting to max workers.")
+		numWorkers = maxWorkers
+	}
 
-    chunkSize := fileSize / int64(numWorkers)
+	chunkSize := fileSize / int64(numWorkers)
 
-    bitmask := make([]byte, totalIPs/8)
-    var wg sync.WaitGroup
+	bitmask := make([]byte, totalIPs/8)
+	var wg sync.WaitGroup
 
-    for i := 0; i < numWorkers; i++ {
-        startOffset := int64(i) * chunkSize
-        endOffset := startOffset + chunkSize
-        if i == numWorkers-1 {
-            endOffset = fileSize
-        }
+	for i := 0; i < numWorkers; i++ {
+		startOffset := int64(i) * chunkSize
+		endOffset := startOffset + chunkSize
+		if i == numWorkers-1 {
+			endOffset = fileSize
+		}
 
-        wg.Add(1)
-        go processFilePart(file, startOffset, endOffset, bitmask, &wg)
-    }
+		wg.Add(1)
+		go processFilePart(file, startOffset, endOffset, bitmask, &wg)
+	}
 
 	wg.Wait()
 
 	uniqueIPs := utils.CountUniqueIPs(bitmask)
-    fmt.Println("Unique ips: ", uniqueIPs)
-    fmt.Println("Total time:", time.Since(start))
+	fmt.Println("Unique ips: ", uniqueIPs)
+	fmt.Println("Total time:", time.Since(start))
 }
 
 func processFileInSingle(inputFile string) (uint32, error) {

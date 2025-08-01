@@ -2,9 +2,9 @@ package utils
 
 import (
 	"encoding/binary"
+	"flag"
 	"fmt"
 	"net"
-	"flag"
 	"runtime"
 )
 
@@ -17,16 +17,16 @@ func IpToUint32(ipStr string) (uint32, error) {
 }
 
 func ParseCmd() (string, int, bool) {
-    var(
-        filePath string
-        numWorkers int
-        allowParallel bool
-    )
+	var (
+		filePath      string
+		numWorkers    int
+		allowParallel bool
+	)
 
-    flag.StringVar(&filePath, "path", "", "Path to the file")
-    flag.IntVar(&numWorkers, "numWorkers", 2, "Max workers for parallel processing")
-    flag.BoolVar(&allowParallel, "allowParallel", false, "Allow parallel processing")
-    flag.Parse()
+	flag.StringVar(&filePath, "path", "", "Path to the file")
+	flag.IntVar(&numWorkers, "numWorkers", 2, "Max workers for parallel processing")
+	flag.BoolVar(&allowParallel, "allowParallel", false, "Allow parallel processing")
+	flag.Parse()
 
 	fmt.Println("Path file is:", filePath)
 	fmt.Println("numWorkers is:", numWorkers)
@@ -34,7 +34,6 @@ func ParseCmd() (string, int, bool) {
 
 	return filePath, numWorkers, allowParallel
 }
-
 
 func CountUniqueIPs(bitmask []byte) uint32 {
 	var count uint32 = 0
