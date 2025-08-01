@@ -17,9 +17,6 @@ const totalIPs = 1 << 32
 func main() {
 	filePath, allowParallel := utils.ParseCmd()
 
-	//filePath = "ips_txt"
-	//allowParallel = true
-
 	numWorkers := 1
 
 	if allowParallel {
