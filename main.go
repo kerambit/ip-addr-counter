@@ -15,11 +15,17 @@ import (
 const totalIPs = 1 << 32
 
 func main() {
-	//filePath, numWorkers, allowParallel := utils.ParseCmd()
+	filePath, allowParallel := utils.ParseCmd()
 
-	filePath := "ips_txt"
+	//filePath = "ips_txt"
+	//allowParallel = true
+
 	numWorkers := 1
-	allowParallel := true
+
+	if allowParallel {
+		maxWorkers := runtime.NumCPU()
+		numWorkers = maxWorkers / 2
+	}
 
 	defer utils.PrintMemUsage()
 	start := time.Now()
@@ -35,11 +41,6 @@ func main() {
 	if err != nil {
 		fmt.Println("Failed to get file info:", err)
 		return
-	}
-
-	if allowParallel {
-		maxWorkers := runtime.NumCPU()
-		numWorkers = maxWorkers / 2
 	}
 
 	chunks, _ := utils.SplitFileIntoChunks(filePath, numWorkers)

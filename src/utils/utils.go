@@ -89,23 +89,20 @@ func IpToUint32(ipStr string) (uint32, error) {
 	return binary.BigEndian.Uint32(ip), nil
 }
 
-func ParseCmd() (string, int, bool) {
+func ParseCmd() (string, bool) {
 	var (
 		filePath      string
-		numWorkers    int
 		allowParallel bool
 	)
 
 	flag.StringVar(&filePath, "path", "", "Path to the file")
-	flag.IntVar(&numWorkers, "numWorkers", 2, "Max workers for parallel processing")
-	flag.BoolVar(&allowParallel, "allowParallel", false, "Allow parallel processing")
+	flag.BoolVar(&allowParallel, "allowParallel", false, "Allow parallel file processing")
 	flag.Parse()
 
 	fmt.Println("Path file is:", filePath)
-	fmt.Println("numWorkers is:", numWorkers)
 	fmt.Println("allowParallelMode is:", allowParallel)
 
-	return filePath, numWorkers, allowParallel
+	return filePath, allowParallel
 }
 
 func CountUniqueIPs(bitmask []byte) uint32 {
