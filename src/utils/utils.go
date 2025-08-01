@@ -5,13 +5,86 @@ import (
 	"flag"
 	"fmt"
 	"net"
+	"os"
 	"runtime"
 )
+
+type Boundaries struct {
+	Start int64
+	End   int64
+}
+
+func SplitFileIntoChunks(filePath string, parts int) ([]Boundaries, error) {
+	file, err := os.Open(filePath)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	// Get file size
+	fileInfo, err := file.Stat()
+	if err != nil {
+		return nil, err
+	}
+	fileSize := fileInfo.Size()
+
+	chunkSize := fileSize / int64(parts)
+	boundaries := make([]Boundaries, 0, parts)
+
+	var start int64 = 0
+
+	for i := 0; i < parts; i++ {
+		var end int64
+		if i == parts-1 {
+			end = fileSize
+		} else {
+			end = start + chunkSize
+		}
+
+		if end < fileSize {
+			// Seek to the end position
+			_, err := file.Seek(end, 0)
+			if err != nil {
+				return nil, err
+			}
+
+			// Read bytes until we find a newline or reach end of file
+			buffer := make([]byte, 1)
+			for {
+				// Get current position
+				currentPos, err := file.Seek(0, 1)
+				if err != nil {
+					return nil, err
+				}
+
+				if currentPos >= fileSize {
+					break
+				}
+
+				n, err := file.Read(buffer)
+				if err != nil || n == 0 {
+					break
+				}
+
+				if buffer[0] == '\n' {
+					end++
+					break
+				}
+				end++
+			}
+		}
+
+		boundaries = append(boundaries, Boundaries{Start: start, End: end})
+		start = end
+	}
+
+	return boundaries, nil
+}
 
 func IpToUint32(ipStr string) (uint32, error) {
 	ip := net.ParseIP(ipStr).To4()
 	if ip == nil {
-		return 0, fmt.Errorf("Invalid IP: %s", ipStr)
+		return 0, fmt.Errorf("invalid IP: %s", ipStr)
 	}
 	return binary.BigEndian.Uint32(ip), nil
 }
