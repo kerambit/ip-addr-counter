@@ -47,7 +47,7 @@ func main() {
 
 	for _, boundary := range chunks {
 		wg.Add(1)
-		go processFilePart(file, boundary.Start, boundary.End, bitmask, &wg)
+		go processFilePart(file, boundary.Start, boundary.End, &bitmask, &wg)
 	}
 
 	wg.Wait()
@@ -57,7 +57,7 @@ func main() {
 	fmt.Println("Total time:", time.Since(start))
 }
 
-func processFilePart(file *os.File, start int64, end int64, bitmask []byte, wg *sync.WaitGroup) {
+func processFilePart(file *os.File, start int64, end int64, bitmask *[]byte, wg *sync.WaitGroup) {
 	defer wg.Done()
 
 	reader := io.NewSectionReader(file, start, end-start)
@@ -87,8 +87,8 @@ func processFilePart(file *os.File, start int64, end int64, bitmask []byte, wg *
 		index := ipUint32 / 8
 		mask := byte(1 << (ipUint32 % 8))
 
-		if bitmask[index]&mask == 0 {
-			bitmask[index] |= mask
+		if (*bitmask)[index]&mask == 0 {
+			(*bitmask)[index] |= mask
 		}
 	}
 }
