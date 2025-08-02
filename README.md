@@ -11,32 +11,27 @@ App calculates the number of unique IPv4 addresses in a given file and print the
 
 ### Usage
 
+Build project into binary:
+
+```bash
+make build-mac
+```
+
 Supports two modes of operation:
 
-1. Without goroutine. Requires less memory, but slower
+1. Without goroutines
 
-ARM:
 ```bash
-./app_arm64  --path "path_to_file"
-```
-x86:
-```bash
-./app_x86  --path "path_to_file"
+./bin/counter -path="path_to_file"
 ```
 
-2. With goroutine. Requires more memory, but faster
-   
-ARM:
+2. With goroutines
+
 ```bash
-./app_arm64  --path "path_to_file" -allowParallel=true -numWorkers=5
+./bin/counter -path="path_to_file" -allowParallel=true
 ```
 
-x86:
-```bash
-./app_x86  --path "path_to_file" -allowParallel=true -numWorkers=5
-```
-
-#### Note: by default, the app will use the first mode. To use the second mode, you need to specify the `-allowParallel` flag and set the number of workers with `-numWorkers` flag. Default number of workers is 2.
+#### Note: by default, the app will use the first mode. To use the second mode, you need to specify the `-allowParallel` flag.
 
 ### Benchmarks
 
